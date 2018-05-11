@@ -10,7 +10,6 @@ from sqlalchemy import create_engine
 from argparse import ArgumentParser
 from merkle import gen_merkle_tree_hash
 from datetime import datetime
-
 import requests
 from flask import Flask, jsonify, request, redirect, render_template
 
@@ -20,24 +19,18 @@ class Blockchain:
         self.chain = []
         self.nodes = set()
         self.Id_roles = {}
-        
-        # Create the genesis block
-        #Removed proof
+        #genesis block
         self.new_block(previous_hash='1',proof=100,genesis=True)
         
 
-    
+    # Add new node to block-chain network
     def register_node(self, address):
-        """
-        Add a new node to the list of nodes
-        :param address: Address of node. Eg. 'http://192.168.0.5:5000'
-        """
-
+    
         parsed_url = urlparse(address)
         self.nodes.add(parsed_url.netloc)
 
+    # Validate chain by checking the hashes of each block(chaining) and proof of work
     def valid_chain(self, chain):
-
 
         last_block = chain[1]
         current_index = 2
@@ -45,12 +38,9 @@ class Blockchain:
         while current_index < len(chain):
             block = chain[current_index]
 
-            # Check that the hash of the block is correct
             if (block['previous_hash']) != (self.hash_merkle(last_block['Product_Details/Transactions'])):
                 return False
 
-  
-            # Check that the Proof of Work is correct
             if not self.valid_proof(last_block['proof'], block['proof'],block['previous_hash']):
                 return False
 
@@ -58,20 +48,14 @@ class Blockchain:
             current_index += 1
 
         return True
-
+    
+    # Replacing chain with longest valid chain in blockchain network 
     def resolve_conflicts(self):
-        """
-        This is our consensus algorithm, it resolves conflicts
-        by replacing our chain with the longest one in the network.
-        :return: True if our chain was replaced, False if not
-        """
-
+ 
         neighbours = self.nodes
         new_chain = None
 
-        # We're only looking for chains longer than ours
         max_length = len(self.chain)
-        # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
             response = requests.get('http://'+node+'/chain')
 
@@ -79,12 +63,10 @@ class Blockchain:
                 length = response.json()['length']
                 chain = response.json()['chain']
 
-                # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
                     max_length = length
                     new_chain = chain
 
-        # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             print("Chain replaced")
             self.chain = new_chain
@@ -92,15 +74,8 @@ class Blockchain:
 
         return False
 
-
-
+    #Bundle transactions into a block
     def new_block(self, previous_hash, proof,genesis):
-        """
-        Create a new Block in the Blockchain
-        :param proof: The proof given by the Proof of Work algorithm
-        :param previous_hash: Hash of previous Block
-        :return: New Block
-        """
 
         if (genesis == True):
             block = {
@@ -120,13 +95,11 @@ class Blockchain:
             'Reward Receipent': node_identifier
             }
             
-
-        # Reset the current list of transactions
         self.reg_txn = []
-
         self.chain.append(block)
         return block
-
+    
+    # Register a new Product/Item
     def registration(self, values):
         validation = self.validate_registration( values['UPC'], values['OwnerID'], values['itemno'])
         session = session_factory()
@@ -152,8 +125,9 @@ class Blockchain:
         else:
             return validation
 
-    def transferOwner(self, values):
-        
+    #Transfer the ownership of item from one user to other
+
+    def transferOwner(self, values):    
         validation = self.validate_transfer( values['UPC'], values['OwnerID'], values['ReceiverID'], values['itemno'])
         session = session_factory()
         OwnerDetails = session.query(AccountDetails).get(values['OwnerID'])
@@ -177,11 +151,13 @@ class Blockchain:
         else:
             return validation
 
+    #Broadcast the mined block to all the registered neighbouring nodes
     def broadcast(self):
         headers = {'content-type': 'application/json'}
         for node in blockchain.nodes:
             response = requests.post("http://"+node+"/broadcast", data=json.dumps(blockchain.chain[-1]),headers=headers)
     
+    #Mine a new block and add it to chain while broadcasting it to all the other nodes
     @staticmethod
     def mine(txn_list):
     
@@ -189,8 +165,6 @@ class Blockchain:
         last_proof = last_block['proof']
         proof = blockchain.proof_of_work(last_block)
 
-        # Forge the new Block by adding it to the chain
-        #previous_hash = blockchain.hash(last_block)
         if(len(last_block['Product_Details/Transactions']) >=1 ):
             previous_hash = blockchain.hash_merkle(last_block['Product_Details/Transactions'])
         else:
@@ -204,7 +178,8 @@ class Blockchain:
         'proof': block['proof'],
         'previous_hash': block['previous_hash'],
         }
-
+    
+    #Validate the product/item registration
     def validate_registration(self,UPC, ownerID, itemno):
 
         session = session_factory()
@@ -223,6 +198,7 @@ class Blockchain:
                                 upc_existing = (tx_list[j])['UPC']
                                 item_existing = (tx_list[j])['ItemNo']
                                 if(upc_existing == UPC):
+                                    print(item_existing, itemno)
                                     if(item_existing == itemno):
                                         response = "Cannot Register. Item {} already registered by {}".format(itemno,tx_existing['OwnerID'])
                                         return response
@@ -237,6 +213,7 @@ class Blockchain:
                                 ownerid_existing = (self.reg_txn[i])['OwnerID']
                                 itemno_existing = (self.reg_txn[i])['ItemNo']
                                 if (upc_existing == UPC):
+                                    print(itemno_existing, itemno)
                                     if(itemno_existing == itemno):
                                         response = "Cannot Register. Item {} already registered by {}".format(itemno,ownerid_existing)
                                         return response
@@ -257,12 +234,12 @@ class Blockchain:
             response = "Cannot Register. {} is not enrolled.Please enroll prior to registration".format(ownerID)
             return response
 
+    #Validating the item transfer
     def validate_transfer(self, upc, ownerID, receiverID, itemno):
 
         session = session_factory()
         if(ownerID == receiverID):
             return "Cannot Transfer Ownership. Owner and Receiver cannot be same"
-
         
         UPC = session.query(UPCNumbers).filter(UPCNumbers.id == upc).first()
         ownerinfo = session.query(AccountDetails).filter(AccountDetails.id == ownerID).first()
@@ -294,6 +271,7 @@ class Blockchain:
                     response ="Cannot Transfer Ownership. Item {} is not registered".format(itemno)
                     return response 
 
+    #User Enrollment to receive unique ID
     def enrollment(self, values):
         
         id = ''.join(random.choice(string.hexdigits) for _ in range(15))
@@ -310,42 +288,30 @@ class Blockchain:
         session.add(account_entry)
         session.commit()
         return id
-
+    
+    #Generating hash for genesis block
     @staticmethod
     def hash(block):
-        """
-        Creates a SHA-256 hash of a Block
-        :param block: Block
-        """
 
-        # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
         block_string = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
     
+    #Generate root-hash based on merkletree construction on transaction-hashes
     @staticmethod
     def hash_merkle(txn_list):
-        """
-        Creates a SHA-256 hash of a Block
-        :param block: Block
-        """
         encoded_list = []
         for txn in txn_list:
             encoded_list.append(json.dumps(txn, sort_keys=True).encode())
         root_hash = gen_merkle_tree_hash(encoded_list)
         return root_hash
+    #return last block of chain
     @property
     def last_block(self):
         return self.chain[-1]
     
+    #Generate proof of work based on mathematical logic such that generated proof as function of
+    # previousblock proof, previous hash will contain zeros in beginning
     def proof_of_work(self, last_block):
-        """
-        Simple Proof of Work Algorithm:
-         - Find a number p' such that hash(pp') contains leading 4 zeroes
-         - Where p is the previous proof, and p' is the new proof
-         
-        :param last_block: <dict> last Block
-        :return: <int>
-        """
 
         last_proof = last_block['proof']
 
@@ -360,25 +326,20 @@ class Blockchain:
 
         return proof
 
+    #Validate proof if it satisfies mathematical condition
     @staticmethod
     def valid_proof(last_proof, proof, last_hash):
-        """
-        Validates the Proof
-        :param last_proof: <int> Previous Proof
-        :param proof: <int> Current Proof
-        :param last_hash: <str> The hash of the Previous Block
-        :return: <bool> True if correct, False if not.
-        """
 
         guess = '{}{}{}'.format(last_proof,proof, last_hash).encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
 
+#Create a sqlitedb
 engine=create_engine('sqlite:///project.db')
 Base.metadata.create_all(engine)
-# Instantiate the Node
 app = Flask(__name__)
 
+#Assign unique id to each node on network
 node_identifier = str(uuid4()).replace('-', '')
 
 def session_factory():
@@ -386,21 +347,18 @@ def session_factory():
     DBSession=sessionmaker(bind=engine)
     return DBSession()
 
-# Instantiate the Blockchain
 blockchain = Blockchain()
 
-
+#End point for product registration
 @app.route('/register', methods=['POST'])
 def register():
     
     values = request.form
-    # Check that the required fields are in the POST'ed data
     required = ['UPC', 'Name', 'Description', 'Cost', 'Expiry Date', 'OwnerID', 'itemno']
     if not all(k in values for k in required):
         response = {'message': 'Missing Values'}
         return jsonify(response),400
 
-    # Create a new Transaction
     index = blockchain.registration(values)
 
     if(isinstance(index, int)):
@@ -412,20 +370,17 @@ def register():
             return jsonify(response),201
         else:
             response = {'message': '{}'.format(index)}
-            #500
             return jsonify(response),500
 
+#End point for product ownership transfer
 @app.route('/transfer', methods=['POST'])
 def transfer():
     values = request.form
-
-    # Check that the required fields are in the POST'ed data
     required = ['UPC', 'itemno', 'OwnerID', 'ReceiverID']
     if not all(k in values for k in required):
         response = {'message': 'Missing Values'}
         return jsonify(response),400
 
-    # Create a new Transaction
     index = blockchain.transferOwner(values)
 
     if(isinstance(index, int)):
@@ -437,15 +392,16 @@ def transfer():
             return jsonify(response),201
         else:
             response = {'message': '{}'.format(index)}
-            #500
             return jsonify(response),500
 
+#Add the received block to block chain
 @app.route('/broadcast', methods=['POST'])
 def append_block():
     values = request.get_json()
     blockchain.chain.append(values)
     return "Block successully appended",201
 
+#Get full length chain
 @app.route('/chain', methods=['GET'])
 def full_chain():
     response = {
@@ -454,16 +410,14 @@ def full_chain():
     }
     return jsonify(response),200
 
-
+#Enroll User
 @app.route('/enroll', methods=['POST'])
 def enrollment():
     values = request.form
 
-    # Check that the required fields are in the POST'ed data
     required = ['Name', 'Role']
     if not all(k in values for k in required):
         return 'Missing values', 400
-
     
     if(values['Role'] == 'Manufacturer'):
         session = session_factory()
@@ -472,11 +426,11 @@ def enrollment():
         if licenceid is None:
             response = {'message': 'The licence ID {} provided is not valid. Cannot assign manufacturer role'.format(values['Manufacturer_Licence_Id'])}
             return jsonify(response), 403
-    # Create a new enrollment
     index = blockchain.enrollment(values)
     response = {'message': 'ID assigned for you is {}'.format(index)}
     return jsonify(response), 201
 
+#Query the End to end details of particular product
 @app.route('/query', methods=['GET'])
 def query_chain():
     upc = request.args.get('upc')
@@ -492,6 +446,7 @@ def query_chain():
             
     return jsonify(response_list),200
 
+#Register Nodes END-POINT
 @app.route('/nodes/register', methods=['POST'])
 def register_nodes():
     values = request.get_json()
@@ -508,7 +463,7 @@ def register_nodes():
     }
     return jsonify(response), 201
 
-
+#Resolve conflicts by comparing with neighbouring nodes
 @app.route('/nodes/resolve', methods=['GET'])
 def consensus():
     replaced = blockchain.resolve_conflicts()
@@ -521,7 +476,7 @@ def consensus():
         }
     else:
         response = {
-            'message': 'Our chain is authoritative',
+            'message': 'Our chain is conflict free',
             'chain': blockchain.chain
         }
 
