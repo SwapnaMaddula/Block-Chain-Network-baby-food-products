@@ -4,6 +4,7 @@ Registering baby food products into blockchain and the user can query the authen
 
 
 **Functionalities:**
+
 	-	Mining a new block
 	-	Proof of work generation
 	-	Validation of transaction and registration
@@ -15,6 +16,7 @@ Registering baby food products into blockchain and the user can query the authen
 
 
 **Technologies:**
+
 	-	SQlite3
 	-	HTML
 	-	CSS
@@ -22,12 +24,14 @@ Registering baby food products into blockchain and the user can query the authen
 
 
 **Requirements:**
+
 	-	Flask
 	-	Python 3.6
 	-	SQLite3
 
 
 **Team Members:**
+
 *SavitriSwapna Maddula*
 *Sheethal Halandur Nagarajan*
 *Sravya Somisetty*
