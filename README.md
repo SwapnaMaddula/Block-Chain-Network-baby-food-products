@@ -1,4 +1,4 @@
-### Block Chain for baby food products: <br />
+## Block Chain for baby food products: 
 Registering baby food products into blockchain and the user can query the authenticity of the product.
 <br />
 <br />
@@ -12,6 +12,7 @@ Registering baby food products into blockchain and the user can query the authen
 - Merkle tree for hashing
 - User Management
 - Post-Man scripts for validation
+- Lookup for each product
 <br />
 
 
