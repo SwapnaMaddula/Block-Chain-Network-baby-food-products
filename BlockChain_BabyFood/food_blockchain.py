@@ -87,7 +87,7 @@ class Blockchain:
         else:
             block = {
             'index': len(self.chain) + 1,
-            'timestamp': datetime.now(),
+            'timestamp': str(datetime.now()),
             'Product_Details/Transactions': self.reg_txn,
             'proof': proof,
             'previous_hash': previous_hash or self.hash(self.chain[-1]),
