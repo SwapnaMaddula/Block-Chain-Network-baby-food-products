@@ -31,13 +31,7 @@ Registering baby food products into blockchain and the user can query the authen
 <br />
 
 
-**Team Members:** <br />
+**By:** <br />
 *SavitriSwapna Maddula* <br />
-*Sheethal Halandur Nagarajan* <br />
-*Sravya Somisetty* <br />
 <br />
 <br />
-
-
-**References:** <br />
-https://hackernoon.com/blockchain-101-only-if-you-know-nothing-b883902c59f7
